@@ -191,10 +191,12 @@ class SONIC_PreData:
         audio2token.to("cpu")
         gc.collect()
         torch.cuda.empty_cache()
+        bbox_c = face_info['crop_bbox']
+        bbox = [bbox_c[0], bbox_c[1], bbox_c[2] - bbox_c[0], bbox_c[3] - bbox_c[1]]
         return ({"test_data": test_data, "ref_tensor_list": ref_tensor_list, "config": config,
                  "image_embeddings": image_embeddings,
                  "audio_tensor_list": audio_tensor_list, "uncond_audio_tensor_list": uncond_audio_tensor_list,
-                 "motion_buckets": motion_buckets}, face_info['crop_bbox'],)
+                 "motion_buckets": motion_buckets}, bbox,)
 
 
 class SONICSampler:
