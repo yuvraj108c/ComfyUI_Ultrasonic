@@ -43,7 +43,7 @@ class SONICLoader:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "svd_repo": ("STRING", {"default": "F:/test/ComfyUI/models/diffusers/stabilityai/stable-video-diffusion-img2vid-xt-1-1"}),
+                "svd_repo": ("STRING", {"default": "stabilityai/stable-video-diffusion-img2vid-xt-1-1"}),
                 "sonic_unet": (["none"] + folder_paths.get_filename_list("sonic"),),
                 "ip_audio_scale": ("FLOAT", {"default": 1.0, "min": 0.5, "max": 2.0,"step": 0.1}),
                 "use_interframe":("BOOLEAN", {"default": True},),
