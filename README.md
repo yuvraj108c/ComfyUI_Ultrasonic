@@ -45,7 +45,7 @@ pip install -r requirements.txt
 * 3.3 clip_vison
 ```
 --  ComfyUI/models/clip_vision/
-    ├── clip_vision_H.safetensors  
+    ├── clip_vision_H.safetensors   # or 'stabilityai/stable-video-diffusion-img2vid-xt' image encoder safetensors or ipadapter image encoder
 ```
 
 # Example
