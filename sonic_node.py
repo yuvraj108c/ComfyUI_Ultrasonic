@@ -212,7 +212,7 @@ class SONICSampler:
                 "seed": ("INT", {"default": 0, "min": 0, "max": MAX_SEED}),
                 "inference_steps": ("INT", {"default": 25, "min": 1, "max": 1024, "step": 1, "display": "number"}),
                 "dynamic_scale": ("FLOAT", {"default": 1.0, "min": 0.5, "max": 2.0, "step": 0.1}),
-                "fps": ("FLOAT", {"default": 24.0, "min": 5.0, "max": 120.0, "step": 0.5}),
+                "fps": ("FLOAT", {"default": 25.0, "min": 5.0, "max": 120.0, "step": 0.5}),
             }}
 
     RETURN_TYPES = ("IMAGE", "FLOAT")
