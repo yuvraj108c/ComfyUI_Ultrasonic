@@ -86,6 +86,38 @@ def crop_face_image(face_image,crop_bbox):
     return crop_image
 
 
+def decode_latents_(latents, num_frames,vae, decode_chunk_size=14):
+        # [batch, frames, channels, height, width] -> [batch*frames, channels, height, width]
+        latents = latents.flatten(0, 1)
+
+        latents = 1 / 0.18215 * latents
+
+        # forward_vae_fn = self.vae._orig_mod.forward if is_compiled_module(self.vae) else self.vae.forward
+        # accepts_num_frames = "num_frames" in set(inspect.signature(forward_vae_fn).parameters.keys())
+
+        # decode decode_chunk_size frames at a time to avoid OOM
+        frames = []
+        for i in range(0, latents.shape[0], decode_chunk_size):
+            #num_frames_in = latents[i : i + decode_chunk_size].shape[0]
+            #decode_kwargs = {}
+            # if accepts_num_frames:
+            #     # we only pass num_frames_in if it's expected
+            #     decode_kwargs["num_frames"] = num_frames_in
+
+            frame = vae.decode(latents[i : i + decode_chunk_size])
+            frames.append(frame.cpu())
+        frames = torch.cat(frames, dim=0) # [50, 512, 512, 3]
+
+        # [batch*frames, channels, height, width] -> [batch, channels, frames, height, width]
+        #frames = frames.reshape(-1, num_frames, *frames.shape[1:]).permute(0, 2, 1, 3, 4)
+        frames=frames.unsqueeze(0).permute(0, 4, 1, 2, 3)
+
+        # we always cast to float32 as this does not cause significant overhead and is compatible with bfloat16
+        frames = frames.float()
+        return frames
+
+
+
 def test(
     pipe,
     config,
@@ -97,6 +129,8 @@ def test(
     batch,
     image_embeds,
     fps,
+    img_latent,
+    vae,
 ):
 
     ref_img = batch['ref_img']
@@ -119,20 +153,27 @@ def test(
         max_guidance_scale1=config.max_appearance_guidance_scale,
         min_guidance_scale2=config.audio_guidance_scale, # 1.0,
         max_guidance_scale2=config.audio_guidance_scale,
+        output_type='latent',
         overlap=config.overlap,
         shift_offset=config.shift_offset,
         frames_per_batch=config.n_sample_frames,
         num_inference_steps=config.num_inference_steps,
-        i2i_noise_strength=config.i2i_noise_strength
+        i2i_noise_strength=config.i2i_noise_strength,
+        img_latent=img_latent,
     ).frames
 
+    
+    video=decode_latents_(video, len(audio_tensor_list),vae, decode_chunk_size=14) # torch.Size([1, 3, 250, 512, 512])
 
     # Concat it with pose tensor
     # pose_tensor = torch.stack(pose_tensor_list,1).unsqueeze(0)
-    video = (video*0.5 + 0.5).clamp(0, 1)
-    video = torch.cat([video.to(pipe.device)], dim=0).cpu()
-    #print("video shape:", video.shape)# torch.Size([1, 3, 250, 512, 512])
+    # video = (video*0.5 + 0.5).clamp(0, 1)
+    # video = torch.cat([video.to(pipe.device)], dim=0).cpu()
+
     return video
+
+
+
 
 
 class Sonic():
@@ -140,7 +181,7 @@ class Sonic():
     def __init__(self, 
                  device,
                  weight_dtype,
-                 vae,
+                 vae_config,
                  val_noise_scheduler,
                  unet,
                  flownet_ckpt,
@@ -162,13 +203,14 @@ class Sonic():
             rife.load_model(flownet_ckpt)
             self.rife = rife
 
-        vae.to(weight_dtype)
+        #vae.to(weight_dtype)
         unet.to(weight_dtype)
 
         pipe = SonicPipeline(
             unet=unet,
-            vae=vae,
+            #vae=vae,
             scheduler=val_noise_scheduler,
+            vae_config=vae_config,
         )
         self.pipe = pipe.to(dtype=weight_dtype)
         self.device = device
@@ -183,7 +225,9 @@ class Sonic():
                 test_data,
                 config,
                 image_embeds,
+                img_latent,
                 fps,
+                vae,
                 inference_steps=25,
                 dynamic_scale=1.0,
                 seed=None):
@@ -210,6 +254,8 @@ class Sonic():
             batch=test_data,
             image_embeds=image_embeds,
             fps=fps,
+            img_latent=img_latent,
+            vae=vae,
             )
 
         if self.use_interframe:
