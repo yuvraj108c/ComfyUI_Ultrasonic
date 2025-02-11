@@ -93,7 +93,7 @@ def get_audio_feature(audio_path, feature_extractor):
     #print(f"audio_features: {audio_features.shape}") #torch.Size([1, 80, 3000])
     return audio_features, len(audio_input) // 640
 
-def image_audio_to_tensor(align_instance, feature_extractor, pil_image, audio_path, limit=100, image_size=512, area=1.25):
+def image_audio_to_tensor(align_instance, feature_extractor, pil_image, audio_path, origin_pil,limit=100, image_size=512, area=1.25):
     
     clip_processor = CLIPImageProcessor()
     
@@ -107,16 +107,18 @@ def image_audio_to_tensor(align_instance, feature_extractor, pil_image, audio_pa
     
 
     #imSrc_ = Image.open(image_path).convert('RGB')
-    imSrc_=pil_image
+    imSrc_=origin_pil
     w, h = imSrc_.size
-    
+    print(f"image size: {w} {h}")
     _, _, bboxes_list = align_instance(np.array(imSrc_)[:,:,[2,1,0]], maxface=True)
 
     if len(bboxes_list) == 0:
+        print("**********No face detected*********")
         return None
     bboxSrc = bboxes_list[0]
 
     x1, y1, ww, hh = bboxSrc
+    #print(x1, y1, ww, hh)    #125.17891931533813 124.08267050523024 251.21736552165106 261.25285324683557
     x2, y2 = x1 + ww, y1 + hh
 
     mask_img = np.zeros_like(np.array(imSrc_))
@@ -130,26 +132,27 @@ def image_audio_to_tensor(align_instance, feature_extractor, pil_image, audio_pa
     mask_img = Image.fromarray(mask_img)
     
     w, h = imSrc_.size
+    print(f"image size: {w} {h},123")
     scale = image_size / min(w, h)
     new_w = round(w * scale / 64) * 64
     new_h = round(h * scale / 64) * 64
-    if new_h != h or new_w != w:
+    if new_h != h or new_w != w: #整数化
         imSrc = imSrc_.resize((new_w, new_h), Image.LANCZOS)
         mask_img = mask_img.resize((new_w, new_h), Image.LANCZOS)
     else:
         imSrc = imSrc_
 
-    clip_image = clip_processor(
-            images=imSrc.resize((224, 224), Image.LANCZOS), return_tensors="pt"
-        ).pixel_values[0]
+    # clip_image = clip_processor(
+    #         images=imSrc.resize((224, 224), Image.LANCZOS), return_tensors="pt"
+    #     ).pixel_values[0]
     audio_input, audio_len = get_audio_feature(audio_path, feature_extractor)
 
     audio_len = min(limit, audio_len)
-
+    print(f"********infer audio length is: {audio_len} 's *************")
     sample = dict(
                 face_mask=mask_to_tensor(mask_img),
                 ref_img=to_tensor(imSrc),
-                clip_images=clip_image,
+                #clip_images=clip_image,
                 audio_feature=audio_input[0],
                 audio_len=audio_len
             )
