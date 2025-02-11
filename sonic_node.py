@@ -16,7 +16,7 @@ from .sonic import Sonic, sonic_predata, preprocess_face, crop_face_image
 from .src.dataset.test_preprocess import image_audio_to_tensor
 from .src.models.audio_adapter.audio_proj import AudioProjModel
 from .src.models.audio_adapter.audio_to_bucket import Audio2bucketModel
-from .node_utils import tensor2cv, cv2pil
+from .node_utils import tensor2cv, cv2pil,convert_cf2diffuser,tensor_upscale,tensor2pil
 from .src.dataset.face_align.align import AlignImage
 
 import folder_paths
@@ -41,7 +41,7 @@ class SONICLoader:
     def INPUT_TYPES(s):
         return {
             "required": {
-                "svd_repo": ("STRING", {"default": "stabilityai/stable-video-diffusion-img2vid-xt-1-1"}),
+                "model": ("MODEL",),
                 "sonic_unet": (["none"] + folder_paths.get_filename_list("sonic"),),
                 "ip_audio_scale": ("FLOAT", {"default": 1.0, "min": 0.5, "max": 2.0, "step": 0.1}),
                 "use_interframe": ("BOOLEAN", {"default": True},),
@@ -54,7 +54,7 @@ class SONICLoader:
     FUNCTION = "loader_main"
     CATEGORY = "SONIC"
 
-    def loader_main(self, svd_repo, sonic_unet, ip_audio_scale, use_interframe, dtype):
+    def loader_main(self, model, sonic_unet, ip_audio_scale, use_interframe, dtype):
 
         if dtype == "fp16":
             weight_dtype = torch.float16
@@ -66,7 +66,7 @@ class SONICLoader:
             raise ValueError(
                 f"Do not support weight dtype: {dtype} during training"
             )
-
+        svd_repo = os.path.join(current_node_path, "svd_repo")
         # check model is exits or not,if not auto downlaod
         flownet_ckpt = os.path.join(SONIC_weigths_path, "RIFE")
 
@@ -75,20 +75,24 @@ class SONICLoader:
 
         # load model
         print("***********Load model ***********")
-        vae = AutoencoderKLTemporalDecoder.from_pretrained(
-            svd_repo,
-            subfolder="vae",
-            variant="fp16")
+        # vae = AutoencoderKLTemporalDecoder.from_pretrained(
+        #     svd_repo,
+        #     subfolder="vae",
+        #     variant="fp16")
 
         val_noise_scheduler = EulerDiscreteScheduler.from_pretrained(
             svd_repo,
             subfolder="scheduler")
 
-        unet = UNetSpatioTemporalConditionModel.from_pretrained(
-            svd_repo,
-            subfolder="unet",
-            variant="fp16")
-        pipe = Sonic(device, weight_dtype, vae, val_noise_scheduler, unet, flownet_ckpt, sonic_unet,
+        unet_config_file=os.path.join(svd_repo, "unet")
+        unet=convert_cf2diffuser(model.model,unet_config_file)
+        vae_config=os.path.join(svd_repo, "vae/config.json")
+        vae_config=OmegaConf.load(vae_config)
+        # unet = UNetSpatioTemporalConditionModel.from_pretrained(
+        #     svd_repo,
+        #     subfolder="unet",
+        #     variant="fp16")
+        pipe = Sonic(device, weight_dtype, vae_config, val_noise_scheduler, unet, flownet_ckpt, sonic_unet,
                      use_interframe, ip_audio_scale)
 
         print("***********Load model done ***********")
@@ -106,18 +110,20 @@ class SONIC_PreData:
         return {
             "required": {
                 "clip_vision": ("CLIP_VISION",),
+                "vae": ("VAE",),
                 "audio": ("AUDIO",),
                 "image": ("IMAGE",),
                 "min_resolution": ("INT", {"default": 512, "min": 128, "max": 2048, "step": 64, "display": "number"}),
+                "frame_num": ("INT", {"default": 10000, "min": 50, "max": MAX_SEED, "step": 1, "display": "number"}),
                 "expand_ratio": ("FLOAT", {"default": 0.5, "min": 0.1, "max": 1.0, "step": 0.1}),
             }}
 
-    RETURN_TYPES = ("SONIC_PREDATA", "BBOX",)
-    RETURN_NAMES = ("data_dict", "bbox",)
+    RETURN_TYPES = ("SONIC_PREDATA",)
+    RETURN_NAMES = ("data_dict", )
     FUNCTION = "sampler_main"
     CATEGORY = "SONIC"
 
-    def sampler_main(self, clip_vision, audio, image, min_resolution, expand_ratio):
+    def sampler_main(self, clip_vision,vae, audio, image, min_resolution,frame_num, expand_ratio):
         config_file = os.path.join(current_node_path, 'config/inference/sonic.yaml')
         config = OmegaConf.load(config_file)
 
@@ -173,8 +179,9 @@ class SONIC_PreData:
         if face_info['face_num'] > 0:
             crop_image_pil = cv2pil(crop_face_image(cv_image, face_info['crop_bbox']))
 
-        test_data = image_audio_to_tensor(face_det, feature_extractor, crop_image_pil, audio_path,
-                                          limit=config.frame_num, image_size=min_resolution, area=config.area)
+        origin_pil=tensor2pil(image)
+        test_data = image_audio_to_tensor(face_det, feature_extractor, crop_image_pil, audio_path,origin_pil,
+                                          limit=frame_num, image_size=min_resolution, area=config.area)
 
         step = 2
         for k, v in test_data.items():
@@ -191,12 +198,17 @@ class SONIC_PreData:
         audio2token.to("cpu")
         gc.collect()
         torch.cuda.empty_cache()
-        bbox_c = face_info['crop_bbox']
-        bbox = [bbox_c[0], bbox_c[1], bbox_c[2] - bbox_c[0], bbox_c[3] - bbox_c[1]]
+
+        height, width = ref_img.shape[-2:]
+        img_latent=vae.encode(tensor_upscale(image,width,height)).to(device, dtype=torch.float16)
+       
+
+        # bbox_c = face_info['crop_bbox']
+        # bbox = [bbox_c[0], bbox_c[1], bbox_c[2] - bbox_c[0], bbox_c[3] - bbox_c[1]]
         return ({"test_data": test_data, "ref_tensor_list": ref_tensor_list, "config": config,
-                 "image_embeddings": image_embeddings,
+                 "image_embeddings": image_embeddings,"img_latent":img_latent,"vae": vae,
                  "audio_tensor_list": audio_tensor_list, "uncond_audio_tensor_list": uncond_audio_tensor_list,
-                 "motion_buckets": motion_buckets}, bbox,)
+                 "motion_buckets": motion_buckets},)
 
 
 class SONICSampler:
@@ -228,10 +240,13 @@ class SONICSampler:
                               data_dict["test_data"],
                               data_dict["config"],
                               image_embeds=data_dict["image_embeddings"],
+                              img_latent=data_dict["img_latent"],
                               fps=fps,
+                              vae=data_dict["vae"],
                               inference_steps=inference_steps,
                               dynamic_scale=dynamic_scale,
-                              seed=seed)
+                              seed=seed
+                              )
         gc.collect()
         torch.cuda.empty_cache()
         return (iamge.permute(0, 2, 3, 4, 1).squeeze(0), fps)
