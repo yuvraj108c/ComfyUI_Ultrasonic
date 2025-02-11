@@ -55,27 +55,28 @@ class SonicPipeline(DiffusionPipeline):
             A `CLIPImageProcessor` to extract features from generated images.
     """
 
-    model_cpu_offload_seq = "unet->vae"
+    model_cpu_offload_seq = "unet"
     #model_cpu_offload_seq = "image_encoder->unet->vae"
     _callback_tensor_inputs = ["latents"]
 
     def __init__(
         self,
-        vae: AutoencoderKLTemporalDecoder,
+        #vae: AutoencoderKLTemporalDecoder,
         #image_encoder: CLIPVisionModelWithProjection,
         unet: UNetSpatioTemporalConditionModel,
         scheduler: EulerDiscreteScheduler,
+        vae_config=None,
     ):
         super().__init__()
         self.register_modules(
-            vae=vae,
+            #vae=vae,
             #image_encoder=image_encoder,
             unet=unet,
             scheduler=scheduler,
         )
-        
-        self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
-
+        self.vae_config=vae_config
+        #self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
+        self.vae_scale_factor = 2 ** (len(self.vae_config.block_out_channels) - 1)
         self.image_processor = VaeImageProcessor(
             vae_scale_factor=self.vae_scale_factor,
             do_convert_rgb=True)
@@ -201,6 +202,8 @@ class SonicPipeline(DiffusionPipeline):
         frames = frames.float()
         return frames
 
+    
+
     def check_inputs(self, image, height, width):
         if (
             not isinstance(image, torch.Tensor)
@@ -315,6 +318,7 @@ class SonicPipeline(DiffusionPipeline):
         shift_offset=3,
         frames_per_batch=14,
         i2i_noise_strength=1.0,
+        img_latent: Optional[torch.FloatTensor] = None,
     ):
         r"""
         The call function to the pipeline for generation.
@@ -436,36 +440,45 @@ class SonicPipeline(DiffusionPipeline):
 
         # 4. Encode input image using VAE
         # needs_upcasting = (self.vae.dtype == torch.float16 or self.vae.dtype == torch.bfloat16) and self.vae.config.force_upcast
-        needs_upcasting = False
-        vae_dtype = self.vae.dtype
-        if needs_upcasting:
-            self.vae.to(dtype=torch.float32)
-        
-        # Prepare ref image latents
-        ref_image_tensor = ref_image.to(
-            dtype=self.vae.dtype, device=self.vae.device
-        )
- 
-        ref_image_latents = self.vae.encode(ref_image_tensor).latent_dist.mean
-        ref_image_latents = ref_image_latents * 0.18215  # (b, 4, h, w)
+        if img_latent is None:
+            needs_upcasting = False
+            vae_dtype = self.vae.dtype
+            if needs_upcasting:
+                self.vae.to(dtype=torch.float32)
+            
+            # Prepare ref image latents
+            ref_image_tensor = ref_image.to(
+                dtype=self.vae.dtype, device=self.vae.device
+            )
+    
+            ref_image_latents = self.vae.encode(ref_image_tensor).latent_dist.mean
+            ref_image_latents = ref_image_latents * 0.18215  # (b, 4, h, w)
 
-        noise = randn_tensor(
-            ref_image_tensor.shape, 
-            generator=generator, 
-            device=self.vae.device, 
-            dtype=self.vae.dtype)
-        
-        ref_image_tensor = ref_image_tensor + noise_aug_strength * noise
+            noise = randn_tensor(
+                ref_image_tensor.shape, 
+                generator=generator, 
+                device=self.vae.device, 
+                dtype=self.vae.dtype)
+            
+            ref_image_tensor = ref_image_tensor + noise_aug_strength * noise
 
-        image_latents = self._encode_vae_image(
-            ref_image_tensor,
-            device=device,
-            num_videos_per_prompt=num_videos_per_prompt,
-            do_classifier_free_guidance=do_classifier_free_guidance,
-        )
-        image_latents = image_latents.to(image_embeddings.dtype)
-        ref_image_latents = ref_image_latents.to(image_embeddings.dtype)
-        
+            image_latents = self._encode_vae_image(
+                ref_image_tensor,
+                device=device,
+                num_videos_per_prompt=num_videos_per_prompt,
+                do_classifier_free_guidance=do_classifier_free_guidance,
+            )
+            image_latents = image_latents.to(image_embeddings.dtype)
+            ref_image_latents = ref_image_latents.to(image_embeddings.dtype)
+        else: 
+            ref_image_latents=img_latent.clone().detach().to(device, dtype=torch.float16)
+            ref_image_latents = ref_image_latents * 0.18215  # (b, 4, h, w)
+
+            negative_image_latents = torch.zeros_like(img_latent)
+            image_latents = torch.cat([negative_image_latents, img_latent, img_latent])
+            needs_upcasting = False
+            vae_dtype = image_latents.dtype
+        #print("image_latents", image_latents.shape,ref_image_latents.shape) #e([3, 4, 64, 64]) torch.Size([1, 4, 64, 64])
         # cast back to fp16 if needed
         if needs_upcasting:
             self.vae.to(dtype=vae_dtype)
@@ -504,7 +517,7 @@ class SonicPipeline(DiffusionPipeline):
         face_mask = face_mask.to(
         device=device, dtype=self.unet.dtype
         )[:,:1]
-
+        #print("face_mask",face_mask.shape) #face_mask torch.Size([1, 1, 512, 512])
         # 7. Prepare guidance scale
         guidance_scale = torch.linspace(
             min_guidance_scale1, 
@@ -560,6 +573,7 @@ class SonicPipeline(DiffusionPipeline):
                     latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
 
                     # Concatenate image_latents over channels dimention
+                    #print(latent_model_input.shape, image_latents_input.shape) #e([3, 25, 4, 64, 64]) torch.Size([3, 25, 4, 64, 64])
                     latent_model_input = torch.cat([
                         latent_model_input, 
                         image_latents_input], dim=2)
@@ -624,6 +638,7 @@ class SonicPipeline(DiffusionPipeline):
                 self.vae.to(dtype=vae_dtype)
             frames = self.decode_latents(latents, num_frames, decode_chunk_size)
         else:
+            #print(latents.shape) #torch.Size([1, 125, 4, 64, 64])
             frames = latents
 
         self.maybe_free_model_hooks()
