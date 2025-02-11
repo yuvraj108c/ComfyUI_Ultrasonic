@@ -1,6 +1,14 @@
 # ComfyUI_Sonic
 [Sonic](https://github.com/jixiaozhong/Sonic) is a method about ' Shifting Focus to Global Audio Perception in Portrait Animation',you can use it in comfyUI
 
+# Update
+* Change the model loading to a monolithic SVD model 模型加载改为单体SVD模型；  
+* add frame number to change infer legth. 新增frame number选项，用于控制输出视频的长度（如果无限大，就是基于音频长度）；
+* Support output of non square images，OOM 支持非正方形图片的输出，容易OOM；
+* image_size is used to control the minimum size of the output image. If OOM, please reduce this value ,image_size用于控制输出图片的最小尺寸，如果OOM请调小这个数值；
+* 感谢@civen-cn 提交的PR
+
+
 # 1. Installation
 
 In the ./ComfyUI/custom_node directory, run the following:   
@@ -31,25 +39,15 @@ pip install -r requirements.txt
     |-- RIFE/
         |--flownet.pkl
 ```
-*  3.2 SVD repo [stabilityai/stable-video-diffusion-img2vid-xt
-](https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt)  or [stabilityai/stable-video-diffusion-img2vid-xt-1-1](https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt-1-1) online or offline   
-* if offline
+*  3.2 SVD checkpoints  [svd_xt.safetensors](https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt)  or [svd_xt_1_1.safetensors](https://huggingface.co/stabilityai/stable-video-diffusion-img2vid-xt-1-1)    
+
 ```
---   anypath/stable-video-diffusion-img2vid-xt/  # or stable-video-diffusion-img2vid-xt-1-1 
-    ├── model_index.json
-    ├── vae...
-    ├── unet...
-    ├── feature_extractor...
-    ├── scheduler...
-```
-* 3.3 clip_vison
-```
---  ComfyUI/models/clip_vision/
-    ├── clip_vision_H.safetensors   # or 'stabilityai/stable-video-diffusion-img2vid-xt' image encoder safetensors or ipadapter image encoder
+--   ComfyUI/models/checkpoints
+    ├── svd_xt.safetensors  or  svd_xt_1_1.safetensors
 ```
 
 # Example
-![](https://github.com/smthemex/ComfyUI_Sonic/blob/main/example.png)
+![](https://github.com/smthemex/ComfyUI_Sonic/blob/main/exampleA.png)
 
 
 # Citation
