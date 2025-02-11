@@ -1,0 +1,456 @@
+{
+  "last_node_id": 59,
+  "last_link_id": 110,
+  "nodes": [
+    {
+      "id": 52,
+      "type": "SONICSampler",
+      "pos": [
+        26204.775390625,
+        -1422.4134521484375
+      ],
+      "size": [
+        315,
+        174
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL_SONIC",
+          "link": 109
+        },
+        {
+          "name": "data_dict",
+          "type": "SONIC_PREDATA",
+          "link": 107
+        }
+      ],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            100
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            102
+          ],
+          "slot_index": 1
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SONICSampler"
+      },
+      "widgets_values": [
+        1351536813,
+        "randomize",
+        25,
+        1,
+        25
+      ]
+    },
+    {
+      "id": 57,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        26659.001953125,
+        -1371.1563720703125
+      ],
+      "size": [
+        315,
+        836.25
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 100,
+          "shape": 7
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 101,
+          "shape": 7
+        },
+        {
+          "name": "meta_batch",
+          "type": "VHS_BatchManager",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "frame_rate",
+          "type": "FLOAT",
+          "link": 102,
+          "widget": {
+            "name": "frame_rate"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VHS_VideoCombine"
+      },
+      "widgets_values": {
+        "frame_rate": 1,
+        "loop_count": 0,
+        "filename_prefix": "AnimateDiff",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 19,
+        "save_metadata": true,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": false,
+          "paused": false,
+          "params": {
+            "filename": "AnimateDiff_00004-audio.mp4",
+            "subfolder": "",
+            "type": "output",
+            "format": "video/h264-mp4",
+            "frame_rate": 25
+          }
+        }
+      }
+    },
+    {
+      "id": 55,
+      "type": "LoadAudio",
+      "pos": [
+        25394.3203125,
+        -1183.0458984375
+      ],
+      "size": [
+        315,
+        124
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "AUDIO",
+          "type": "AUDIO",
+          "links": [
+            101,
+            105
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadAudio"
+      },
+      "widgets_values": [
+        "audio_619668_temp.wav",
+        null,
+        ""
+      ]
+    },
+    {
+      "id": 58,
+      "type": "SONIC_PreData",
+      "pos": [
+        25815.453125,
+        -1266.9522705078125
+      ],
+      "size": [
+        315,
+        166
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip_vision",
+          "type": "CLIP_VISION",
+          "link": 103
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 104
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 105
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 106
+        }
+      ],
+      "outputs": [
+        {
+          "name": "data_dict",
+          "type": "SONIC_PREDATA",
+          "links": [
+            107
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "bbox",
+          "type": "BBOX",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SONIC_PreData"
+      },
+      "widgets_values": [
+        512,
+        100,
+        0.5
+      ]
+    },
+    {
+      "id": 54,
+      "type": "ImageOnlyCheckpointLoader",
+      "pos": [
+        25391.19140625,
+        -1410.889404296875
+      ],
+      "size": [
+        315,
+        98
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            108
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "CLIP_VISION",
+          "type": "CLIP_VISION",
+          "links": [
+            103
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            104
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageOnlyCheckpointLoader"
+      },
+      "widgets_values": [
+        "svd_xt_1_1.safetensors"
+      ]
+    },
+    {
+      "id": 59,
+      "type": "SONICTLoader",
+      "pos": [
+        25809.66796875,
+        -1468.1669921875
+      ],
+      "size": [
+        315,
+        130
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 108
+        }
+      ],
+      "outputs": [
+        {
+          "name": "model",
+          "type": "MODEL_SONIC",
+          "links": [
+            109
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SONICTLoader"
+      },
+      "widgets_values": [
+        "unet.pth",
+        1,
+        true,
+        "fp16"
+      ]
+    },
+    {
+      "id": 56,
+      "type": "LoadImage",
+      "pos": [
+        25398.240234375,
+        -998.1263427734375
+      ],
+      "size": [
+        315,
+        314
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            106
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": null
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "hair.png",
+        "image"
+      ]
+    }
+  ],
+  "links": [
+    [
+      100,
+      52,
+      0,
+      57,
+      0,
+      "IMAGE"
+    ],
+    [
+      101,
+      55,
+      0,
+      57,
+      1,
+      "AUDIO"
+    ],
+    [
+      102,
+      52,
+      1,
+      57,
+      4,
+      "FLOAT"
+    ],
+    [
+      103,
+      54,
+      1,
+      58,
+      0,
+      "CLIP_VISION"
+    ],
+    [
+      104,
+      54,
+      2,
+      58,
+      1,
+      "VAE"
+    ],
+    [
+      105,
+      55,
+      0,
+      58,
+      2,
+      "AUDIO"
+    ],
+    [
+      106,
+      56,
+      0,
+      58,
+      3,
+      "IMAGE"
+    ],
+    [
+      107,
+      58,
+      0,
+      52,
+      1,
+      "SONIC_PREDATA"
+    ],
+    [
+      108,
+      54,
+      0,
+      59,
+      0,
+      "MODEL"
+    ],
+    [
+      109,
+      59,
+      0,
+      52,
+      0,
+      "MODEL_SONIC"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.2673486306414076,
+      "offset": [
+        -23372.406038737452,
+        2747.2773067638996
+      ]
+    }
+  },
+  "version": 0.4
+}
