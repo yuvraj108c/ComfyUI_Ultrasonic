@@ -2,11 +2,8 @@
 [Sonic](https://github.com/jixiaozhong/Sonic) is a method about ' Shifting Focus to Global Audio Perception in Portrait Animation',you can use it in comfyUI
 
 # Update
-* Change the model loading to a monolithic SVD model, 模型加载改为单体SVD模型；  
-* add frame number to change infer legth. 新增frame number选项，用于控制输出视频的长度（如果无限大，就是基于音频长度）；
-* Support output of non square images，OOM 支持非正方形图片的输出，容易OOM；
-* image_size is used to control the minimum size of the output image. If OOM, please reduce this value ,image_size用于控制输出图片的最小尺寸，如果OOM请调小这个数值；
-* 感谢@civen-cn 提交的PR
+* Replace 'frame number' with 'duration',you can use it to change 'infer audio seconds'. 使用duration替换frame number选项，用于控制输出音频的长度(单位为秒），注意因为实际对比长度是音频振幅数组，不是百分比精准；
+* Fixed the bug of batch mismatch when the frame rate is not 25.修复帧率不是25时，batch不匹配的bug。
 
 
 # 1. Installation
@@ -47,7 +44,16 @@ pip install -r requirements.txt
 ```
 
 # Example
+* newest 最新
+![](https://github.com/smthemex/ComfyUI_Sonic/blob/main/example.png)
+
 ![](https://github.com/smthemex/ComfyUI_Sonic/blob/main/exampleA.png)
+
+# Previous update
+* Change the model loading to a monolithic SVD model, 模型加载改为单体SVD模型；  
+* Support output of non square images，OOM 支持非正方形图片的输出，容易OOM；
+* image_size is used to control the minimum size of the output image. If OOM, please reduce this value ,image_size用于控制输出图片的最小尺寸，如果OOM请调小这个数值；
+* 感谢@civen-cn 提交的PR
 
 
 # Citation
