@@ -114,7 +114,7 @@ class SONIC_PreData:
                 "audio": ("AUDIO",),
                 "image": ("IMAGE",),
                 "min_resolution": ("INT", {"default": 512, "min": 128, "max": 2048, "step": 64, "display": "number"}),
-                "frame_num": ("INT", {"default": 10000, "min": 50, "max": MAX_SEED, "step": 1, "display": "number"}),
+                "duration": ("FLOAT", {"default": 10.0, "min": 1.0, "max": 100000000000.0, "step": 0.1}),
                 "expand_ratio": ("FLOAT", {"default": 0.5, "min": 0.1, "max": 1.0, "step": 0.1}),
             }}
 
@@ -123,7 +123,7 @@ class SONIC_PreData:
     FUNCTION = "sampler_main"
     CATEGORY = "SONIC"
 
-    def sampler_main(self, clip_vision,vae, audio, image, min_resolution,frame_num, expand_ratio):
+    def sampler_main(self, clip_vision,vae, audio, image, min_resolution,duration, expand_ratio):
         config_file = os.path.join(current_node_path, 'config/inference/sonic.yaml')
         config = OmegaConf.load(config_file)
 
@@ -163,9 +163,15 @@ class SONIC_PreData:
         audio_file_prefix = ''.join(random.choice("0123456789") for _ in range(6))
         audio_path = os.path.join(folder_paths.get_input_directory(), f"audio_{audio_file_prefix}_temp.wav")
 
+        num_frames = audio["waveform"].squeeze(0).shape[1]
+        duration_input = num_frames / audio["sample_rate"]
+
+        infer_duration = min(duration,duration_input)
+        print(f"Input audio duration is {duration_input} seconds, infer audio duration is: {duration_input} seconds.")
         # 减少音频数据传递导致的不必要文件存储
         buff = io.BytesIO()
         torchaudio.save(buff, audio["waveform"].squeeze(0), audio["sample_rate"], format="FLAC")
+
         with open(audio_path, 'wb') as f:
             f.write(buff.getbuffer())
         gc.collect()
@@ -180,8 +186,8 @@ class SONIC_PreData:
             crop_image_pil = cv2pil(crop_face_image(cv_image, face_info['crop_bbox']))
 
         origin_pil=tensor2pil(image)
-        test_data = image_audio_to_tensor(face_det, feature_extractor, crop_image_pil, audio_path,origin_pil,
-                                          limit=frame_num, image_size=min_resolution, area=config.area)
+        test_data = image_audio_to_tensor(face_det, feature_extractor, infer_duration, audio_path,origin_pil,
+                                          limit=MAX_SEED, image_size=min_resolution, area=config.area)
 
         step = 2
         for k, v in test_data.items():
