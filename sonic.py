@@ -156,7 +156,7 @@ def test(
         output_type='latent',
         overlap=config.overlap,
         shift_offset=config.shift_offset,
-        frames_per_batch=config.n_sample_frames,
+        frames_per_batch=int(fps),
         num_inference_steps=config.num_inference_steps,
         i2i_noise_strength=config.i2i_noise_strength,
         img_latent=img_latent,
