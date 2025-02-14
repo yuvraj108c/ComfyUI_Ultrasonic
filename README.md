@@ -2,6 +2,7 @@
 [Sonic](https://github.com/jixiaozhong/Sonic) is a method about ' Shifting Focus to Global Audio Perception in Portrait Animation',you can use it in comfyUI
 
 # Update
+* fix some code try to adapt  MAC 修改一些代码，看是否能适配MAC。
 * Replace 'frame number' with 'duration',you can use it to change 'infer audio seconds'. 使用duration替换frame number选项，用于控制输出音频的长度(单位为秒），注意因为实际对比长度是音频振幅数组，不是百分比精准；
 * Fixed the bug of batch mismatch when the frame rate is not 25.修复帧率不是25时，batch不匹配的bug。
 
