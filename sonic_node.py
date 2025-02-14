@@ -85,7 +85,7 @@ class SONICLoader:
             subfolder="scheduler")
 
         unet_config_file=os.path.join(svd_repo, "unet")
-        unet=convert_cf2diffuser(model.model,unet_config_file)
+        unet=convert_cf2diffuser(model.model,unet_config_file,weight_dtype)
         vae_config=os.path.join(svd_repo, "vae/config.json")
         vae_config=OmegaConf.load(vae_config)
         # unet = UNetSpatioTemporalConditionModel.from_pretrained(
@@ -206,8 +206,10 @@ class SONIC_PreData:
         torch.cuda.empty_cache()
 
         height, width = ref_img.shape[-2:]
-        img_latent=vae.encode(tensor_upscale(image,width,height)).to(device, dtype=torch.float16)
-       
+        if device == "cuda":
+            img_latent=vae.encode(tensor_upscale(image,width,height)).to(device, dtype=torch.float16) #TO DO fp16 bf16
+        else:
+            img_latent = vae.encode(tensor_upscale(image, width, height)).to(device, dtype=torch.float32)
 
         # bbox_c = face_info['crop_bbox']
         # bbox = [bbox_c[0], bbox_c[1], bbox_c[2] - bbox_c[0], bbox_c[3] - bbox_c[1]]
