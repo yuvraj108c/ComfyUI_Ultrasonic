@@ -18,7 +18,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 def sonic_predata(wav_enc,audio_feature,audio_len,step,audio2bucket,image_encoder,audio_pe,ref_img,clip_img,device):
  
     image_embeds=image_encoder.encode_image(clip_img)["image_embeds"] #torch.Size([1, 1024])
-    image_embeds=image_embeds.clone().detach().to(device, dtype=torch.float16) #dtype需要改成可选
+    if device=='cuda':
+        image_embeds=image_embeds.clone().detach().to(device, dtype=torch.float16) #dtype需要改成可选fp16 bf16
+    else:
+        image_embeds=image_embeds.to(device, dtype=torch.float32) #dtype需要改成可选
 
 
     audio_prompts = []
