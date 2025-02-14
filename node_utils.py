@@ -26,14 +26,14 @@ def cv2pil(cv_image):
     pil_image = Image.fromarray(rgb_image)
     return pil_image
 
-def convert_cf2diffuser(model,unet_config_file):
-    from diffusers.pipelines.stable_diffusion.convert_from_ckpt import convert_ldm_unet_checkpoint
-    from diffusers import UNet2DConditionModel
+def convert_cf2diffuser(model,unet_config_file,weight_dtype):
+    #from diffusers.pipelines.stable_diffusion.convert_from_ckpt import convert_ldm_unet_checkpoint
+    #from diffusers import UNet2DConditionModel
     from .src.models.base.unet_spatio_temporal_condition import UNetSpatioTemporalConditionModel
     cf_state_dict = model.diffusion_model.state_dict()
     unet_state_dict = model.model_config.process_unet_state_dict_for_saving(cf_state_dict)
     unet_config = UNetSpatioTemporalConditionModel.load_config(unet_config_file)
-    Unet = UNetSpatioTemporalConditionModel.from_config(unet_config).to(device, torch.float16)
+    Unet = UNetSpatioTemporalConditionModel.from_config(unet_config).to(device, weight_dtype)
     #cf_state_dict = convert_ldm_unet_checkpoint(unet_state_dict, Unet.config)
     Unet.load_state_dict(unet_state_dict, strict=False)
     del cf_state_dict
