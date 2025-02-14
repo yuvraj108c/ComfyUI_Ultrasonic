@@ -18,11 +18,10 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 def sonic_predata(wav_enc,audio_feature,audio_len,step,audio2bucket,image_encoder,audio_pe,ref_img,clip_img,device):
  
     image_embeds=image_encoder.encode_image(clip_img)["image_embeds"] #torch.Size([1, 1024])
-    if device=='cuda':
+    if device==torch.device("cuda"):
         image_embeds=image_embeds.clone().detach().to(device, dtype=torch.float16) #dtype需要改成可选fp16 bf16
     else:
         image_embeds=image_embeds.to(device, dtype=torch.float32) #dtype需要改成可选
-
 
     audio_prompts = []
     last_audio_prompts = []
@@ -94,7 +93,8 @@ def decode_latents_(latents, num_frames,vae, decode_chunk_size=14):
         latents = latents.flatten(0, 1)
 
         latents = 1 / 0.18215 * latents
-
+        if latents.is_cuda and vae.device==torch.device("cpu"):
+            latents = latents.to(vae.device)
         # forward_vae_fn = self.vae._orig_mod.forward if is_compiled_module(self.vae) else self.vae.forward
         # accepts_num_frames = "num_frames" in set(inspect.signature(forward_vae_fn).parameters.keys())
 
