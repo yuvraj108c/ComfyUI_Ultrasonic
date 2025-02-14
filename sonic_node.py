@@ -206,7 +206,7 @@ class SONIC_PreData:
         torch.cuda.empty_cache()
 
         height, width = ref_img.shape[-2:]
-        if device == "cuda":
+        if device == torch.device("cuda"):
             img_latent=vae.encode(tensor_upscale(image,width,height)).to(device, dtype=torch.float16) #TO DO fp16 bf16
         else:
             img_latent = vae.encode(tensor_upscale(image, width, height)).to(device, dtype=torch.float32)
@@ -243,7 +243,7 @@ class SONICSampler:
     def sampler_main(self, model, data_dict, seed, inference_steps, dynamic_scale, fps):
         print("***********Start infer  ***********")
         vae = data_dict["vae"]
-        if device!='cuda':
+        if device!=torch.device("cuda"):
             vae.first_stage_model = vae.first_stage_model.to(device)
             vae.output_device = device
         iamge = model.process(data_dict["audio_tensor_list"],
