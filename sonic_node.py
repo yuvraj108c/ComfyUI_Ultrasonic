@@ -242,6 +242,9 @@ class SONICSampler:
 
     def sampler_main(self, model, data_dict, seed, inference_steps, dynamic_scale, fps):
         print("***********Start infer  ***********")
+        vae = data_dict["vae"]
+        vae.first_stage_model = vae.first_stage_model.to(device)
+        vae.output_device = device
         iamge = model.process(data_dict["audio_tensor_list"],
                               data_dict["uncond_audio_tensor_list"],
                               data_dict["motion_buckets"],
@@ -250,7 +253,7 @@ class SONICSampler:
                               image_embeds=data_dict["image_embeddings"],
                               img_latent=data_dict["img_latent"],
                               fps=fps,
-                              vae=data_dict["vae"],
+                              vae=vae,
                               inference_steps=inference_steps,
                               dynamic_scale=dynamic_scale,
                               seed=seed
