@@ -410,9 +410,14 @@ class UNetSpatioTemporalConditionModel(ModelMixin, ConfigMixin, UNet2DConditionL
         # `Timesteps` does not contain any weights and will always return f32 tensors
         # but time_embedding might actually be running in fp16. so we need to cast here.
         # there might be better ways to encapsulate this.
-        t_emb = t_emb.to(dtype=sample.dtype)
-
+       
+        if encoder_hidden_states[0].dtype==torch.bfloat16:
+            t_emb = t_emb.to(dtype=encoder_hidden_states[0].dtype)
+            #print(f"t_emb.dtype: {encoder_hidden_states[0].dtype}")
+        else:
+            t_emb = t_emb.to(dtype=sample.dtype)
         emb = self.time_embedding(t_emb)
+        
 
         time_embeds = self.add_time_proj(added_time_ids.flatten())
         # import ipdb
@@ -443,6 +448,9 @@ class UNetSpatioTemporalConditionModel(ModelMixin, ConfigMixin, UNet2DConditionL
             
 
         # 2. pre-process
+        if encoder_hidden_states[0].dtype==torch.bfloat16:
+            sample = sample.to(emb.dtype) #to bf
+            #print(f"sample.dtype: {sample.dtype}")
         sample = self.conv_in(sample)
         
         ### 20240731 add spatial_condition here ###
