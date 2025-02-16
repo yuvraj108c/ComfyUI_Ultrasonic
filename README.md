@@ -2,10 +2,7 @@
 [Sonic](https://github.com/jixiaozhong/Sonic) is a method about ' Shifting Focus to Global Audio Perception in Portrait Animation',you can use it in comfyUI
 
 # Update
-* fix some code try to adapt  MAC 修改一些代码，看是否能适配MAC。
-* Replace 'frame number' with 'duration',you can use it to change 'infer audio seconds'. 使用duration替换frame number选项，用于控制输出音频的长度(单位为秒），注意因为实际对比长度是音频振幅数组，不是百分比精准；
-* Fixed the bug of batch mismatch when the frame rate is not 25.修复帧率不是25时，batch不匹配的bug。
-
+* fix bf16 error,fix 12GVRAM maybe OOM when first run,fix MPS device error,修复bf16无法使用的错误，修复12GVram首次加载时容易OOM的问题，修复MAC的MPS支持。
 
 # 1. Installation
 
@@ -46,11 +43,13 @@ pip install -r requirements.txt
 
 # Example
 * newest 最新
-![](https://github.com/smthemex/ComfyUI_Sonic/blob/main/example.png)
+![](https://github.com/smthemex/ComfyUI_Sonic/blob/main/exampleB.png)
 
 ![](https://github.com/smthemex/ComfyUI_Sonic/blob/main/exampleA.png)
 
 # Previous update
+* Replace 'frame number' with 'duration',you can use it to change 'infer audio seconds'. 使用duration替换frame number选项，用于控制输出音频的长度(单位为秒），注意因为实际对比长度是音频振幅数组，不是百分比精准；
+* Fixed the bug of batch mismatch when the frame rate is not 25.修复帧率不是25时，batch不匹配的bug。
 * Change the model loading to a monolithic SVD model, 模型加载改为单体SVD模型；  
 * Support output of non square images，OOM 支持非正方形图片的输出，容易OOM；
 * image_size is used to control the minimum size of the output image. If OOM, please reduce this value ,image_size用于控制输出图片的最小尺寸，如果OOM请调小这个数值；
