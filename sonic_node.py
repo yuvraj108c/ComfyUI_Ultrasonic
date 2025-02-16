@@ -23,8 +23,12 @@ import folder_paths
 
 MAX_SEED = np.iinfo(np.int32).max
 current_node_path = os.path.dirname(os.path.abspath(__file__))
+
+
 device = torch.device(
-    "cuda") if torch.cuda.is_available() else torch.device("cpu")
+    "cuda") if torch.cuda.is_available() else torch.device(
+    "mps") if torch.backends.mps.is_available() else torch.device(
+    "cpu")
 
 # add checkpoints dir
 SONIC_weigths_path = os.path.join(folder_paths.models_dir, "sonic")
@@ -49,8 +53,8 @@ class SONICLoader:
             },
         }
 
-    RETURN_TYPES = ("MODEL_SONIC",)
-    RETURN_NAMES = ("model",)
+    RETURN_TYPES = ("MODEL_SONIC","DTYPE")
+    RETURN_NAMES = ("model","dtype")
     FUNCTION = "loader_main"
     CATEGORY = "SONIC"
 
@@ -60,12 +64,9 @@ class SONICLoader:
             weight_dtype = torch.float16
         elif dtype == "fp32":
             weight_dtype = torch.float32
-        elif dtype == "bf16":
+        else: 
             weight_dtype = torch.bfloat16
-        else:
-            raise ValueError(
-                f"Do not support weight dtype: {dtype} during training"
-            )
+       
         svd_repo = os.path.join(current_node_path, "svd_repo")
         # check model is exits or not,if not auto downlaod
         flownet_ckpt = os.path.join(SONIC_weigths_path, "RIFE")
@@ -98,7 +99,7 @@ class SONICLoader:
         print("***********Load model done ***********")
         gc.collect()
         torch.cuda.empty_cache()
-        return (pipe,)
+        return (pipe,weight_dtype)
 
 
 class SONIC_PreData:
@@ -113,6 +114,7 @@ class SONIC_PreData:
                 "vae": ("VAE",),
                 "audio": ("AUDIO",),
                 "image": ("IMAGE",),
+                "weight_dtype": ("DTYPE",),
                 "min_resolution": ("INT", {"default": 512, "min": 128, "max": 2048, "step": 64, "display": "number"}),
                 "duration": ("FLOAT", {"default": 10.0, "min": 1.0, "max": 100000000000.0, "step": 0.1}),
                 "expand_ratio": ("FLOAT", {"default": 0.5, "min": 0.1, "max": 1.0, "step": 0.1}),
@@ -123,7 +125,7 @@ class SONIC_PreData:
     FUNCTION = "sampler_main"
     CATEGORY = "SONIC"
 
-    def sampler_main(self, clip_vision,vae, audio, image, min_resolution,duration, expand_ratio):
+    def sampler_main(self, clip_vision,vae, audio, image,weight_dtype, min_resolution,duration, expand_ratio):
         config_file = os.path.join(current_node_path, 'config/inference/sonic.yaml')
         config = OmegaConf.load(config_file)
 
@@ -197,8 +199,9 @@ class SONIC_PreData:
         audio_feature = test_data['audio_feature']
         audio_len = test_data['audio_len']
 
+        
         ref_tensor_list, audio_tensor_list, uncond_audio_tensor_list, motion_buckets, image_embeddings = sonic_predata(
-            whisper, audio_feature, audio_len, step, audio2bucket, clip_vision, audio2token, ref_img, image, device)
+            whisper, audio_feature, audio_len, step, audio2bucket, clip_vision, audio2token, ref_img, image, device,weight_dtype)
         del clip_vision, face_det, whisper
         audio2bucket.to("cpu")
         audio2token.to("cpu")
@@ -206,11 +209,15 @@ class SONIC_PreData:
         torch.cuda.empty_cache()
 
         height, width = ref_img.shape[-2:]
-        if device == torch.device("cuda"):
-            img_latent=vae.encode(tensor_upscale(image,width,height)).to(device, dtype=torch.float16) #TO DO fp16 bf16
-        else:
-            img_latent = vae.encode(tensor_upscale(image, width, height)).to(device, dtype=torch.float32)
 
+        if vae.device!=device:
+            vae.device!=device
+        img_latent=vae.encode(tensor_upscale(image,width,height)).to(device, dtype=weight_dtype) 
+        vae.device=torch.device("cpu")
+       
+        from comfy.model_management import unload_all_models
+        print(unload_all_models())
+    
         # bbox_c = face_info['crop_bbox']
         # bbox = [bbox_c[0], bbox_c[1], bbox_c[2] - bbox_c[0], bbox_c[3] - bbox_c[1]]
         return ({"test_data": test_data, "ref_tensor_list": ref_tensor_list, "config": config,
@@ -241,11 +248,16 @@ class SONICSampler:
     CATEGORY = "SONIC"
 
     def sampler_main(self, model, data_dict, seed, inference_steps, dynamic_scale, fps):
+
         print("***********Start infer  ***********")
-        vae = data_dict["vae"]
-        if device!=torch.device("cuda"):
-            vae.first_stage_model = vae.first_stage_model.to(device)
-            vae.output_device = device
+        # # 当前分配的 CUDA 内存
+        # current_memory = torch.cuda.memory_allocated()
+        # print(f"Current CUDA memory allocated: {current_memory / 1024**2} MB")
+
+        # # 历史最大分配的 CUDA 内存
+        # max_memory = torch.cuda.max_memory_allocated()
+        # print(f"Max CUDA memory allocated: {max_memory / 1024**2} MB")
+
         iamge = model.process(data_dict["audio_tensor_list"],
                               data_dict["uncond_audio_tensor_list"],
                               data_dict["motion_buckets"],
@@ -254,7 +266,7 @@ class SONICSampler:
                               image_embeds=data_dict["image_embeddings"],
                               img_latent=data_dict["img_latent"],
                               fps=fps,
-                              vae=vae,
+                              vae= data_dict["vae"],
                               inference_steps=inference_steps,
                               dynamic_scale=dynamic_scale,
                               seed=seed
