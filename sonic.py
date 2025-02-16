@@ -11,17 +11,17 @@ from .src.pipelines.pipeline_sonic import SonicPipeline
 from .src.utils.RIFE.RIFE_HDv3 import RIFEModel
 
 
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
-def sonic_predata(wav_enc,audio_feature,audio_len,step,audio2bucket,image_encoder,audio_pe,ref_img,clip_img,device):
+def sonic_predata(wav_enc,audio_feature,audio_len,step,audio2bucket,image_encoder,audio_pe,ref_img,clip_img,device,weight_dtype):
  
     image_embeds=image_encoder.encode_image(clip_img)["image_embeds"] #torch.Size([1, 1024])
-    if device==torch.device("cuda"):
-        image_embeds=image_embeds.clone().detach().to(device, dtype=torch.float16) #dtype需要改成可选fp16 bf16
+
+    if device!=torch.device("cpu"):
+        image_embeds=image_embeds.clone().detach().to(device, dtype=weight_dtype) # mps or cuda
     else:
-        image_embeds=image_embeds.to(device, dtype=torch.float32) #dtype需要改成可选
+        image_embeds=image_embeds.to(device, dtype=weight_dtype) 
 
     audio_prompts = []
     last_audio_prompts = []
@@ -65,7 +65,6 @@ def sonic_predata(wav_enc,audio_feature,audio_len,step,audio2bucket,image_encode
     return ref_tensor_list,audio_tensor_list,uncond_audio_tensor_list,motion_buckets,image_embeds
 
 
-
 def preprocess_face(face_image,face_det, expand_ratio=1.0):
         
         h, w = face_image.shape[:2]
@@ -88,13 +87,17 @@ def crop_face_image(face_image,crop_bbox):
     return crop_image
 
 
-def decode_latents_(latents, num_frames,vae, decode_chunk_size=14):
+def decode_latents_(latents,vae,device, decode_chunk_size=14):
         # [batch, frames, channels, height, width] -> [batch*frames, channels, height, width]
         latents = latents.flatten(0, 1)
 
         latents = 1 / 0.18215 * latents
-        if latents.is_cuda and vae.device==torch.device("cpu"):
-            latents = latents.to(vae.device)
+        vae.device = device
+        vae.output_device = device
+        # if latents.is_cuda:
+        #     if vae.device==torch.device("cpu") or vae.device==torch.device("mps"):
+        #        latents = latents.to(vae.device)
+            
         # forward_vae_fn = self.vae._orig_mod.forward if is_compiled_module(self.vae) else self.vae.forward
         # accepts_num_frames = "num_frames" in set(inspect.signature(forward_vae_fn).parameters.keys())
 
@@ -134,6 +137,7 @@ def test(
     fps,
     img_latent,
     vae,
+    device,
 ):
 
     ref_img = batch['ref_img']
@@ -165,8 +169,9 @@ def test(
         img_latent=img_latent,
     ).frames
 
-    
-    video=decode_latents_(video, len(audio_tensor_list),vae, decode_chunk_size=14) # torch.Size([1, 3, 250, 512, 512])
+    pipe.to("cpu")
+
+    video=decode_latents_(video, vae,device, decode_chunk_size=14) # torch.Size([1, 3, 250, 512, 512])
 
     # Concat it with pose tensor
     # pose_tensor = torch.stack(pose_tensor_list,1).unsqueeze(0)
@@ -246,6 +251,8 @@ class Sonic():
         height, width = test_data['ref_img'].shape[-2:]
         #self.pipe.enable_model_cpu_offload #太慢，没意义
         self.pipe.to(self.device)
+        
+        
         video = test(
             self.pipe,
             config,
@@ -259,6 +266,7 @@ class Sonic():
             fps=fps,
             img_latent=img_latent,
             vae=vae,
+            device=self.device
             )
 
         if self.use_interframe:
