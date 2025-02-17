@@ -26,7 +26,7 @@ current_node_path = os.path.dirname(os.path.abspath(__file__))
 
 
 device = torch.device(
-    "cuda") if torch.cuda.is_available() else torch.device(
+    "cuda:0") if torch.cuda.is_available() else torch.device(
     "mps") if torch.backends.mps.is_available() else torch.device(
     "cpu")
 
@@ -80,7 +80,8 @@ class SONICLoader:
         #     svd_repo,
         #     subfolder="vae",
         #     variant="fp16")
-
+        #device=model.model.device
+        
         val_noise_scheduler = EulerDiscreteScheduler.from_pretrained(
             svd_repo,
             subfolder="scheduler")
@@ -93,6 +94,7 @@ class SONICLoader:
         #     svd_repo,
         #     subfolder="unet",
         #     variant="fp16")
+        
         pipe = Sonic(device, weight_dtype, vae_config, val_noise_scheduler, unet, flownet_ckpt, sonic_unet,
                      use_interframe, ip_audio_scale)
 
@@ -126,6 +128,7 @@ class SONIC_PreData:
     CATEGORY = "SONIC"
 
     def sampler_main(self, clip_vision,vae, audio, image,weight_dtype, min_resolution,duration, expand_ratio):
+        
         config_file = os.path.join(current_node_path, 'config/inference/sonic.yaml')
         config = OmegaConf.load(config_file)
 
@@ -169,7 +172,7 @@ class SONIC_PreData:
         duration_input = num_frames / audio["sample_rate"]
 
         infer_duration = min(duration,duration_input)
-        print(f"Input audio duration is {duration_input} seconds, infer audio duration is: {duration_input} seconds.")
+        print(f"Input audio duration is {duration_input} seconds, infer audio duration is: {duration} seconds.")
         # 减少音频数据传递导致的不必要文件存储
         buff = io.BytesIO()
         torchaudio.save(buff, audio["waveform"].squeeze(0), audio["sample_rate"], format="FLAC")
@@ -210,13 +213,14 @@ class SONIC_PreData:
 
         height, width = ref_img.shape[-2:]
 
+        #print(vae.device,device)
         if vae.device!=device:
             vae.device=device
         img_latent=vae.encode(tensor_upscale(image,width,height)).to(device, dtype=weight_dtype) 
-        # vae.device=torch.device("cpu")
+        vae.device=torch.device("cpu")
        
-        # from comfy.model_management import unload_all_models
-        # print(unload_all_models())
+        from comfy.model_management import unload_all_models
+        print(unload_all_models())
     
         # bbox_c = face_info['crop_bbox']
         # bbox = [bbox_c[0], bbox_c[1], bbox_c[2] - bbox_c[0], bbox_c[3] - bbox_c[1]]
