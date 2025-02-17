@@ -2,6 +2,7 @@
 [Sonic](https://github.com/jixiaozhong/Sonic) is a method about ' Shifting Focus to Global Audio Perception in Portrait Animation',you can use it in comfyUI
 
 # Update
+* some guys cuda must use  cuda:0,so fix it. 修复有些人的电脑必须用cuda:0，否则会报错的错误。
 * fix bf16 error,fix 12GVRAM maybe OOM when first run,fix MPS device error,修复bf16无法使用的错误，修复12GVram首次加载时容易OOM的问题，修复MAC的MPS支持。
 
 # 1. Installation
