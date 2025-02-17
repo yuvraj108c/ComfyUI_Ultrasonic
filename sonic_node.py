@@ -211,7 +211,7 @@ class SONIC_PreData:
         height, width = ref_img.shape[-2:]
 
         if vae.device!=device:
-            vae.device==device
+            vae.device=device
         img_latent=vae.encode(tensor_upscale(image,width,height)).to(device, dtype=weight_dtype) 
         vae.device=torch.device("cpu")
        
