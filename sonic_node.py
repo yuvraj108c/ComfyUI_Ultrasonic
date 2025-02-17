@@ -213,10 +213,10 @@ class SONIC_PreData:
         if vae.device!=device:
             vae.device=device
         img_latent=vae.encode(tensor_upscale(image,width,height)).to(device, dtype=weight_dtype) 
-        vae.device=torch.device("cpu")
+        # vae.device=torch.device("cpu")
        
-        from comfy.model_management import unload_all_models
-        print(unload_all_models())
+        # from comfy.model_management import unload_all_models
+        # print(unload_all_models())
     
         # bbox_c = face_info['crop_bbox']
         # bbox = [bbox_c[0], bbox_c[1], bbox_c[2] - bbox_c[0], bbox_c[3] - bbox_c[1]]
