@@ -93,11 +93,7 @@ def decode_latents_(latents,vae,device, decode_chunk_size=14):
 
         latents = 1 / 0.18215 * latents
         vae.device = device
-        vae.output_device = device
-        # if latents.is_cuda:
-        #     if vae.device==torch.device("cpu") or vae.device==torch.device("mps"):
-        #        latents = latents.to(vae.device)
-            
+        
         # forward_vae_fn = self.vae._orig_mod.forward if is_compiled_module(self.vae) else self.vae.forward
         # accepts_num_frames = "num_frames" in set(inspect.signature(forward_vae_fn).parameters.keys())
 
@@ -169,7 +165,7 @@ def test(
         img_latent=img_latent,
     ).frames
 
-    pipe.to("cpu")
+    pipe.to(device=torch.device("cpu"))
 
     video=decode_latents_(video, vae,device, decode_chunk_size=14) # torch.Size([1, 3, 250, 512, 512])
 
