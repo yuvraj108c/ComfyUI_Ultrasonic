@@ -20,6 +20,12 @@ from ..models.base.unet_spatio_temporal_condition import UNetSpatioTemporalCondi
 
 logger = logging.get_logger(__name__)
 
+from ...trt_utilities import Engine
+engine = Engine("/workspace/sonic.trt")
+engine.load()
+engine.activate()
+engine.allocate_buffers()
+cudaStream = torch.cuda.current_stream().cuda_stream
 
 @dataclass
 class Pose2VideoSVDPipelineOutput(BaseOutput):
@@ -552,6 +558,8 @@ class SonicPipeline(DiffusionPipeline):
                     (latents_all.shape[0], num_frames, 1, 1, 1),
                     dtype=self.unet.dtype,
                 ).to(device=latents_all.device)
+                
+                # self.unet.to("cpu")
 
                 for batch, index_start in enumerate(range(0, num_frames, frames_per_batch - overlap)):
                     self.scheduler._step_index = None
@@ -593,15 +601,58 @@ class SonicPipeline(DiffusionPipeline):
                     )
                     added_time_ids = added_time_ids.to(device, dtype=self.unet.dtype)
 
-                    # predict the noise residual
-                    noise_pred = self.unet(
-                        latent_model_input,
-                        t,
-                        encoder_hidden_states=(batch_image_embeddings.flatten(0,1), [batch_audio_prompts.flatten(0,1)]),
-                        cross_attention_kwargs=cross_attention_kwargs,
-                        added_time_ids=added_time_ids,
-                        return_dict=False,
-                    )[0]        
+                    encoder_hidden_states_1, encoder_hidden_states_2 = batch_image_embeddings.flatten(0,1), batch_audio_prompts.flatten(0,1)
+                    # # Ensure all inputs are on CUDA
+                    # latent_model_input = latent_model_input.to("cuda")
+                    # t = t.to("cuda")
+                    # encoder_hidden_states_1 = encoder_hidden_states_1.to("cuda")
+                    # encoder_hidden_states_2 = encoder_hidden_states_2.to("cuda")
+                    # added_time_ids = added_time_ids.to("cuda")
+
+                    # save_path = "/workspace/onnx/sonic.onnx"
+                    # self.unet.to("cuda")
+                    # self.unet.eval()
+
+                    # # Export to ONNX
+                    # torch.onnx.export(
+                    #     self.unet,
+                    #     args=(
+                    #         latent_model_input.to("cuda"),
+                    #         t.to("cuda"),
+                    #         encoder_hidden_states_1.to("cuda"),
+                    #         encoder_hidden_states_2.to("cuda"),
+                    #         added_time_ids.to("cuda")
+                    #     ),
+                    #     f=save_path,
+                    #     input_names=['latent_model_input', 't','encoder_hidden_states_1', 'encoder_hidden_states_2','added_time_ids'],
+                    #     output_names=['noise_pred'],
+                    #     # dynamic_axes={
+                    #     #     'sample': {0: 'batch_size'},
+                    #     #     'encoder_hidden_states': {0: 'batch_size'},
+                    #     # },
+                    #     opset_version=19,
+                    #     do_constant_folding=True
+                    # )
+                    # print(f"UNet exported to: {save_path}")
+
+                    # import sys
+                    # sys.exit(0)
+
+                    torch.cuda.empty_cache()
+                    result = engine.infer({"latent_model_input": latent_model_input, "t": t, "encoder_hidden_states_1":encoder_hidden_states_1, "encoder_hidden_states_2":encoder_hidden_states_2, "added_time_ids":added_time_ids }, cudaStream)
+                    noise_pred = result['noise_pred']
+
+                    # # # predict the noise residual
+                    # noise_pred = self.unet(
+                    #     latent_model_input,
+                    #     t,
+                    #     # encoder_hidden_states=(batch_image_embeddings.flatten(0,1), [batch_audio_prompts.flatten(0,1)]),
+                    #     encoder_hidden_states_1=encoder_hidden_states_1,
+                    #     encoder_hidden_states_2=encoder_hidden_states_2,
+                    #     cross_attention_kwargs=cross_attention_kwargs,
+                    #     added_time_ids=added_time_ids,
+                    #     return_dict=False,
+                    # )[0]        
                     # perform guidance
                     if do_classifier_free_guidance:
                         noise_pred_uncond, noise_pred_drop_audio, noise_pred_cond = noise_pred.chunk(3)
